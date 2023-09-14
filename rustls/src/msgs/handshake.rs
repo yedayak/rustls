@@ -2395,8 +2395,13 @@ impl<'a> HandshakeMessagePayload<'a> {
 
     pub(crate) fn encoding_for_binder_signing(&self) -> Vec<u8> {
         let mut ret = self.get_encoding();
+        let ret_len = ret.len() - self.total_binder_length();
+        ret.truncate(ret_len);
+        ret
+    }
 
-        let binder_len = match self.payload {
+    pub(crate) fn total_binder_length(&self) -> usize {
+        match self.payload {
             HandshakePayload::ClientHello(ref ch) => match ch.extensions.last() {
                 Some(ClientExtension::PresharedKey(ref offer)) => {
                     let mut binders_encoding = Vec::new();
@@ -2408,11 +2413,7 @@ impl<'a> HandshakeMessagePayload<'a> {
                 _ => 0,
             },
             _ => 0,
-        };
-
-        let ret_len = ret.len() - binder_len;
-        ret.truncate(ret_len);
-        ret
+        }
     }
 
     pub(crate) fn build_handshake_hash(hash: &[u8]) -> Self {

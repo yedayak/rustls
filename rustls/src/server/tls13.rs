@@ -94,7 +94,9 @@ mod client_hello {
             binder: &[u8],
         ) -> bool {
             let binder_plaintext = match &client_hello.payload {
-                MessagePayload::Handshake { parsed, .. } => parsed.encoding_for_binder_signing(),
+                MessagePayload::Handshake { parsed, encoded } => {
+                    &encoded.bytes()[..encoded.bytes().len() - parsed.total_binder_length()]
+                }
                 _ => unreachable!(),
             };
 
