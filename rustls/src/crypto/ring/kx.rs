@@ -44,6 +44,10 @@ impl SupportedKxGroup for KxGroup {
     fn name(&self) -> NamedGroup {
         self.name
     }
+
+    fn fips_mode(&self) -> bool {
+        super::fips_mode()
+    }
 }
 
 impl fmt::Debug for KxGroup {

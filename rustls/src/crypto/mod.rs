@@ -186,6 +186,21 @@ pub struct CryptoProvider {
     pub key_provider: &'static dyn KeyProvider,
 }
 
+impl CryptoProvider {
+    /// Returns if this `CryptoProvider` is operating in FIPS mode.
+    pub fn fips_mode(&self) -> bool {
+        self.cipher_suites
+            .iter()
+            .all(|cs| cs.fips_mode())
+            && self
+                .kx_groups
+                .iter()
+                .all(|kx| kx.fips_mode())
+            && self.secure_random.fips_mode()
+            && self.key_provider.fips_mode()
+    }
+}
+
 /// A source of cryptographically secure randomness.
 pub trait SecureRandom: Send + Sync + Debug {
     /// Fill the given buffer with random bytes.
@@ -199,6 +214,11 @@ pub trait SecureRandom: Send + Sync + Debug {
     /// an ephemeral key exchange key, but this is not included in the interface with
     /// rustls: it is assumed that the cryptography library provides for this itself.
     fn fill(&self, buf: &mut [u8]) -> Result<(), GetRandomFailed>;
+
+    /// Return true if this is backed by a FIPS-approved implementation.
+    fn fips_mode(&self) -> bool {
+        false
+    }
 }
 
 /// A mechanism for loading private [SigningKey]s from [PrivateKeyDer].
@@ -214,6 +234,14 @@ pub trait KeyProvider: Send + Sync + Debug {
         &self,
         key_der: PrivateKeyDer<'static>,
     ) -> Result<Arc<dyn SigningKey>, Error>;
+
+    /// Return true if this is backed by a FIPS-approved implementation.
+    ///
+    /// If this returns true, that must be the case for all possible key types
+    /// supported by [`load_private_key()`].
+    fn fips_mode(&self) -> bool {
+        false
+    }
 }
 
 /// A supported key exchange group.
@@ -240,6 +268,11 @@ pub trait SupportedKxGroup: Send + Sync + Debug {
     /// If the `NamedGroup` enum does not have a name for the algorithm you are implementing,
     /// you can use [`NamedGroup::Unknown`].
     fn name(&self) -> NamedGroup;
+
+    /// Return true if this is backed by a FIPS-approved implementation.
+    fn fips_mode(&self) -> bool {
+        false
+    }
 }
 
 /// An in-progress key exchange originating from a [`SupportedKxGroup`].

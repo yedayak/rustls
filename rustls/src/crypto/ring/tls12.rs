@@ -173,6 +173,10 @@ impl Tls12AeadAlgorithm for GcmAlgorithm {
             iv: gcm_iv(write_iv, explicit),
         })
     }
+
+    fn fips_mode(&self) -> bool {
+        super::fips_mode()
+    }
 }
 
 pub(crate) struct ChaCha20Poly1305;
@@ -218,6 +222,10 @@ impl Tls12AeadAlgorithm for ChaCha20Poly1305 {
             key,
             iv: Iv::new(iv[..].try_into().unwrap()),
         })
+    }
+
+    fn fips_mode(&self) -> bool {
+        false // not fips approved
     }
 }
 

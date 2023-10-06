@@ -5707,3 +5707,27 @@ fn test_client_removes_tls12_session_if_server_sends_undecryptable_first_message
         ClientStorageOp::RemoveTls12Session(_)
     ));
 }
+
+#[cfg(feature = "ring")]
+#[test]
+fn test_client_fips_service_indicator() {
+    assert_eq!(make_client_config(KeyType::Rsa).fips_mode(), false);
+}
+
+#[cfg(feature = "ring")]
+#[test]
+fn test_server_fips_service_indicator() {
+    assert_eq!(make_server_config(KeyType::Rsa).fips_mode(), false);
+}
+
+#[cfg(all(not(feature = "ring"), feature = "aws_lc_rs"))]
+#[test]
+fn test_client_fips_service_indicator() {
+    assert_eq!(make_client_config(KeyType::Rsa).fips_mode(), true);
+}
+
+#[cfg(all(not(feature = "ring"), feature = "aws_lc_rs"))]
+#[test]
+fn test_server_fips_service_indicator() {
+    assert_eq!(make_server_config(KeyType::Rsa).fips_mode(), true);
+}

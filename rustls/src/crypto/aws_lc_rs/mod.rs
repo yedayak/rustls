@@ -36,8 +36,17 @@ pub(crate) mod tls13;
 /// A `CryptoProvider` backed by aws-lc-rs.
 pub fn default_provider() -> CryptoProvider {
     CryptoProvider {
-        cipher_suites: DEFAULT_CIPHER_SUITES.to_vec(),
-        kx_groups: ALL_KX_GROUPS.to_vec(),
+        // TODO: make this filtering conditional on fips feature
+        cipher_suites: DEFAULT_CIPHER_SUITES
+            .iter()
+            .filter(|cs| cs.fips_mode())
+            .copied()
+            .collect(),
+        kx_groups: ALL_KX_GROUPS
+            .iter()
+            .filter(|kx| kx.fips_mode())
+            .copied()
+            .collect(),
         signature_verification_algorithms: SUPPORTED_SIG_ALGS,
         secure_random: &AwsLcRs,
         key_provider: &AwsLcRs,
@@ -55,6 +64,10 @@ impl SecureRandom for AwsLcRs {
             .fill(buf)
             .map_err(|_| GetRandomFailed)
     }
+
+    fn fips_mode(&self) -> bool {
+        aws_lc_rs::try_fips_mode().is_ok()
+    }
 }
 
 impl KeyProvider for AwsLcRs {
@@ -63,6 +76,10 @@ impl KeyProvider for AwsLcRs {
         key_der: PrivateKeyDer<'static>,
     ) -> Result<Arc<dyn SigningKey>, Error> {
         sign::any_supported_type(&key_der)
+    }
+
+    fn fips_mode(&self) -> bool {
+        aws_lc_rs::try_fips_mode().is_ok()
     }
 }
 
@@ -207,4 +224,10 @@ mod ring_shim {
 }
 
 /// AEAD algorithm that is used by `mod ticketer`.
-pub(super) static TICKETER_AEAD: &'static ring_like::aead::Algorithm = &ring_like::aead::AES_256_GCM;
+pub(super) static TICKETER_AEAD: &'static ring_like::aead::Algorithm =
+    &ring_like::aead::AES_256_GCM;
+
+/// Are we in FIPS mode?
+pub(super) fn fips_mode() -> bool {
+    aws_lc_rs::try_fips_mode().is_ok()
+}

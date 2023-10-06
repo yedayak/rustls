@@ -387,6 +387,12 @@ impl ServerConfig {
         }
     }
 
+    /// Return true if connections made with this `ServerConfig` will
+    /// operate in FIPS mode.
+    pub fn fips_mode(&self) -> bool {
+        self.provider.fips_mode()
+    }
+
     /// We support a given TLS version if it's quoted in the configured
     /// versions *and* at least one ciphersuite for this version is
     /// also configured.

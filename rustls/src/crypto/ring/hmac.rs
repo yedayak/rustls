@@ -23,6 +23,10 @@ impl crypto::hmac::Hmac for Hmac {
     fn hash_output_len(&self) -> usize {
         self.0.digest_algorithm().output_len()
     }
+
+    fn fips_mode(&self) -> bool {
+        super::fips_mode()
+    }
 }
 
 struct Key(ring_like::hmac::Key);

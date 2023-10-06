@@ -205,3 +205,7 @@ mod ring_shim {
 /// AEAD algorithm that is used by `mod ticketer`.
 pub(super) static TICKETER_AEAD: &'static ring_like::aead::Algorithm =
     &ring_like::aead::CHACHA20_POLY1305;
+
+pub(super) fn fips_mode() -> bool {
+    false
+}
