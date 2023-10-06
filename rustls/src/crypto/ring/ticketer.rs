@@ -6,6 +6,7 @@ use crate::server::ProducesTickets;
 
 use super::ring_like::aead;
 use super::ring_like::rand::{SecureRandom, SystemRandom};
+use super::TICKETER_AEAD;
 
 use alloc::boxed::Box;
 use alloc::sync::Arc;
@@ -20,7 +21,8 @@ impl Ticketer {
     /// Make the recommended Ticketer.  This produces tickets
     /// with a 12 hour life and randomly generated keys.
     ///
-    /// The encryption mechanism used is Chacha20Poly1305.
+    /// The encryption mechanism used is injected via TICKETER_AEAD;
+    /// it must take a 256-bit key and 96-bit nonce.
     pub fn new() -> Result<Arc<dyn ProducesTickets>, Error> {
         Ok(Arc::new(crate::ticketer::TicketSwitcher::new(
             6 * 60 * 60,
@@ -35,11 +37,10 @@ fn make_ticket_generator() -> Result<Box<dyn ProducesTickets>, GetRandomFailed> 
         .fill(&mut key)
         .map_err(|_| GetRandomFailed)?;
 
-    let alg = &aead::CHACHA20_POLY1305;
-    let key = aead::UnboundKey::new(alg, &key).unwrap();
+    let key = aead::UnboundKey::new(TICKETER_AEAD, &key).unwrap();
 
     Ok(Box::new(AeadTicketer {
-        alg,
+        alg: TICKETER_AEAD,
         key: aead::LessSafeKey::new(key),
         lifetime: 60 * 60 * 12,
     }))

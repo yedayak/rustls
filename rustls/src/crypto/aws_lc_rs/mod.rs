@@ -205,3 +205,6 @@ mod ring_shim {
         ring_like::signature::EcdsaKeyPair::from_pkcs8(alg, data).map_err(|_| ())
     }
 }
+
+/// AEAD algorithm that is used by `mod ticketer`.
+pub(super) static TICKETER_AEAD: &'static ring_like::aead::Algorithm = &ring_like::aead::AES_256_GCM;
