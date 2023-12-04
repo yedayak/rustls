@@ -1,6 +1,8 @@
 use crate::crypto::cipher::{MessageDecrypter, MessageEncrypter};
 use crate::error::Error;
-use crate::msgs::message::{BorrowedPlainMessage, OpaqueMessage, PlainMessage};
+use crate::msgs::message::{
+    BorrowedPlainMessage, OpaqueMessage, OutgoingOpaqueMessage, PlainMessage,
+};
 
 #[cfg(feature = "logging")]
 use crate::log::trace;
@@ -106,7 +108,10 @@ impl RecordLayer {
     ///
     /// `plain` is a TLS message we'd like to send.  This function
     /// panics if the requisite keying material hasn't been established yet.
-    pub(crate) fn encrypt_outgoing(&mut self, plain: BorrowedPlainMessage) -> OpaqueMessage {
+    pub(crate) fn encrypt_outgoing(
+        &mut self,
+        plain: BorrowedPlainMessage,
+    ) -> OutgoingOpaqueMessage {
         debug_assert!(self.encrypt_state == DirectionState::Active);
         assert!(!self.encrypt_exhausted());
         let seq = self.write_seq;

@@ -8,7 +8,9 @@ use crate::msgs::enums::{AlertLevel, KeyUpdateRequest};
 use crate::msgs::fragmenter::MessageFragmenter;
 use crate::msgs::handshake::CertificateChain;
 use crate::msgs::message::MessagePayload;
-use crate::msgs::message::{BorrowedPlainMessage, Message, OpaqueMessage, PlainMessage};
+use crate::msgs::message::{
+    BorrowedPlainMessage, Message, OpaqueMessage, OutgoingOpaqueMessage, PlainMessage,
+};
 use crate::quic;
 use crate::record_layer;
 use crate::suites::PartiallyExtractedSecrets;
@@ -370,7 +372,7 @@ impl CommonState {
     }
 
     // Put m into sendable_tls for writing.
-    fn queue_tls_message(&mut self, m: OpaqueMessage) {
+    fn queue_tls_message(&mut self, m: OutgoingOpaqueMessage) {
         self.sendable_tls.append(m.encode());
     }
 

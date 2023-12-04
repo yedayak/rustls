@@ -71,6 +71,9 @@ impl MessagePayload {
     }
 }
 
+/// A TLS frame in the process of being sent, named TLSPlaintext in the standard.
+pub type OutgoingOpaqueMessage = OpaqueMessage;
+
 /// A TLS frame, named TLSPlaintext in the standard.
 ///
 /// This type owns all memory for its interior parts. It is used to read/write from/to I/O

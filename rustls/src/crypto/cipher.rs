@@ -6,7 +6,9 @@ use std::error::Error as StdError;
 use crate::enums::{ContentType, ProtocolVersion};
 use crate::error::Error;
 use crate::msgs::codec;
-pub use crate::msgs::message::{BorrowedPlainMessage, OpaqueMessage, PlainMessage};
+pub use crate::msgs::message::{
+    BorrowedPlainMessage, OpaqueMessage, OutgoingOpaqueMessage, PlainMessage,
+};
 use crate::suites::ConnectionTrafficSecrets;
 
 use zeroize::Zeroize;
@@ -131,7 +133,11 @@ pub trait MessageDecrypter: Send + Sync {
 pub trait MessageEncrypter: Send + Sync {
     /// Encrypt the given TLS message `msg`, using the sequence number
     /// `seq which can be used to derive a unique [`Nonce`].
-    fn encrypt(&mut self, msg: BorrowedPlainMessage, seq: u64) -> Result<OpaqueMessage, Error>;
+    fn encrypt(
+        &mut self,
+        msg: BorrowedPlainMessage,
+        seq: u64,
+    ) -> Result<OutgoingOpaqueMessage, Error>;
 
     /// Return the length of the ciphertext that results from encrypting plaintext of
     /// length `payload_len`
@@ -301,7 +307,11 @@ impl From<[u8; Self::MAX_LEN]> for AeadKey {
 struct InvalidMessageEncrypter {}
 
 impl MessageEncrypter for InvalidMessageEncrypter {
-    fn encrypt(&mut self, _m: BorrowedPlainMessage, _seq: u64) -> Result<OpaqueMessage, Error> {
+    fn encrypt(
+        &mut self,
+        _m: BorrowedPlainMessage,
+        _seq: u64,
+    ) -> Result<OutgoingOpaqueMessage, Error> {
         Err(Error::EncryptError)
     }
 
