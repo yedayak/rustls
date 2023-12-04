@@ -85,27 +85,21 @@ impl cipher::MessageEncrypter for Tls13Cipher {
         &mut self,
         m: cipher::BorrowedPlainMessage,
         seq: u64,
-    ) -> Result<cipher::OpaqueMessage, rustls::Error> {
+    ) -> Result<cipher::OutgoingOpaqueMessage, rustls::Error> {
         let total_len = self.encrypted_payload_len(m.payload.len());
 
         // construct a TLSInnerPlaintext
-        let mut payload = Vec::with_capacity(total_len);
-        payload.extend_from_slice(m.payload);
-        payload.push(m.typ.get_u8());
+        let mut out = cipher::OutgoingOpaqueMessage::new(ContentType::ApplicationData, ProtocolVersion::TLSv1_2, total_len);
+        out.extend_from_slice(m.payload);
+        out.extend_from_slice(&[m.typ.get_u8()]);
 
         let nonce = chacha20poly1305::Nonce::from(cipher::Nonce::new(&self.1, seq).0);
         let aad = cipher::make_tls13_aad(total_len);
 
         self.0
-            .encrypt_in_place(&nonce, &aad, &mut payload)
+            .encrypt_in_place(&nonce, &aad, &mut out)
             .map_err(|_| rustls::Error::EncryptError)
-            .map(|_| {
-                cipher::OpaqueMessage::new(
-                    ContentType::ApplicationData,
-                    ProtocolVersion::TLSv1_2,
-                    payload,
-                )
-            })
+            .map(|_| out)
     }
 
     fn encrypted_payload_len(&self, payload_len: usize) -> usize {
