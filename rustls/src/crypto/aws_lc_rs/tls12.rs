@@ -300,16 +300,16 @@ impl MessageEncrypter for GcmMessageEncrypter {
         let aad = aead::Aad::from(make_tls12_aad(seq, msg.typ, msg.version, msg.payload.len()));
 
         let total_len = self.encrypted_payload_len(msg.payload.len());
-        let mut payload = Vec::with_capacity(total_len);
-        payload.extend_from_slice(&nonce.as_ref()[4..]);
-        payload.extend_from_slice(msg.payload);
+        let mut out = OutgoingOpaqueMessage::new(msg.typ, msg.version, total_len);
+        out.extend_from_slice(&nonce.as_ref()[4..]);
+        out.extend_from_slice(msg.payload);
 
         self.enc_key
-            .seal_in_place_separate_tag(nonce, aad, &mut payload[GCM_EXPLICIT_NONCE_LEN..])
-            .map(|tag| payload.extend(tag.as_ref()))
+            .seal_in_place_separate_tag(nonce, aad, &mut out.as_mut()[GCM_EXPLICIT_NONCE_LEN..])
+            .map(|tag| out.extend_from_slice(tag.as_ref()))
             .map_err(|_| Error::EncryptError)?;
 
-        Ok(OutgoingOpaqueMessage::new(msg.typ, msg.version, payload))
+        Ok(out)
     }
 
     fn encrypted_payload_len(&self, payload_len: usize) -> usize {
@@ -377,14 +377,14 @@ impl MessageEncrypter for ChaCha20Poly1305MessageEncrypter {
         let aad = aead::Aad::from(make_tls12_aad(seq, msg.typ, msg.version, msg.payload.len()));
 
         let total_len = self.encrypted_payload_len(msg.payload.len());
-        let mut buf = Vec::with_capacity(total_len);
-        buf.extend_from_slice(msg.payload);
+        let mut out = OutgoingOpaqueMessage::new(msg.typ, msg.version, total_len);
+        out.extend_from_slice(msg.payload);
 
         self.enc_key
-            .seal_in_place_append_tag(nonce, aad, &mut buf)
+            .seal_in_place_append_tag(nonce, aad, &mut out)
             .map_err(|_| Error::EncryptError)?;
 
-        Ok(OutgoingOpaqueMessage::new(msg.typ, msg.version, buf))
+        Ok(out)
     }
 
     fn encrypted_payload_len(&self, payload_len: usize) -> usize {

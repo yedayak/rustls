@@ -72,7 +72,46 @@ impl MessagePayload {
 }
 
 /// A TLS frame in the process of being sent, named TLSPlaintext in the standard.
-pub type OutgoingOpaqueMessage = OpaqueMessage;
+///
+/// This is stored pre-encoded.
+pub struct OutgoingOpaqueMessage(Vec<u8>);
+
+impl OutgoingOpaqueMessage {
+    /// Encode a new `OutgoingOpaqueMessage` from the header items.
+    ///
+    /// On exit, the interior `Vec` has a capacity of `body_len` plus `OpaqueMessage::HEADER_SIZE` bytes,
+    /// and has a size of `OpaqueMessage::HEADER_SIZE`.
+    ///
+    /// The caller must then append exactly `body_len` bytes.
+    pub fn new(typ: ContentType, version: ProtocolVersion, body_len: usize) -> Self {
+        let mut buf =
+            Vec::with_capacity(body_len.saturating_add(OpaqueMessage::HEADER_SIZE as usize));
+        typ.encode(&mut buf);
+        version.encode(&mut buf);
+        (body_len as u16).encode(&mut buf);
+        Self(buf)
+    }
+
+    pub fn extend_from_slice(&mut self, slice: &[u8]) {
+        self.0.extend_from_slice(slice);
+    }
+
+    pub(crate) fn into_bytes(self) -> Vec<u8> {
+        self.0
+    }
+}
+
+impl<'a> Extend<&'a u8> for OutgoingOpaqueMessage {
+    fn extend<T: IntoIterator<Item = &'a u8>>(&mut self, iter: T) {
+        self.0.extend(iter);
+    }
+}
+
+impl AsMut<[u8]> for OutgoingOpaqueMessage {
+    fn as_mut(&mut self) -> &mut [u8] {
+        &mut self.0[OpaqueMessage::HEADER_SIZE as usize..]
+    }
+}
 
 /// A TLS frame, named TLSPlaintext in the standard.
 ///
@@ -263,12 +302,10 @@ pub struct PlainMessage {
 }
 
 impl PlainMessage {
-    pub fn into_unencrypted_opaque(self) -> OpaqueMessage {
-        OpaqueMessage {
-            version: self.version,
-            typ: self.typ,
-            payload: self.payload,
-        }
+    pub fn into_unencrypted_opaque(self) -> OutgoingOpaqueMessage {
+        let mut r = OutgoingOpaqueMessage::new(self.typ, self.version, self.payload.0.len());
+        r.extend_from_slice(&self.payload.0);
+        r
     }
 
     pub fn borrow(&self) -> BorrowedPlainMessage<'_> {
@@ -345,12 +382,10 @@ pub struct BorrowedPlainMessage<'a> {
 }
 
 impl<'a> BorrowedPlainMessage<'a> {
-    pub fn to_unencrypted_opaque(&self) -> OpaqueMessage {
-        OpaqueMessage {
-            version: self.version,
-            typ: self.typ,
-            payload: Payload(self.payload.to_vec()),
-        }
+    pub fn to_unencrypted_opaque(&self) -> OutgoingOpaqueMessage {
+        let mut r = OutgoingOpaqueMessage::new(self.typ, self.version, self.payload.len());
+        r.extend_from_slice(self.payload);
+        r
     }
 }
 

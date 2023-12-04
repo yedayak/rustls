@@ -216,23 +216,23 @@ impl MessageEncrypter for AeadMessageEncrypter {
         seq: u64,
     ) -> Result<OutgoingOpaqueMessage, Error> {
         let total_len = self.encrypted_payload_len(msg.payload.len());
-        let mut payload = Vec::with_capacity(total_len);
-        payload.extend_from_slice(msg.payload);
-        msg.typ.encode(&mut payload);
-
-        let nonce = aead::Nonce::assume_unique_for_key(Nonce::new(&self.iv, seq).0);
-        let aad = aead::Aad::from(make_tls13_aad(total_len));
-        self.enc_key
-            .seal_in_place_append_tag(nonce, aad, &mut payload)
-            .map_err(|_| Error::EncryptError)?;
-
-        Ok(OutgoingOpaqueMessage::new(
+        let mut out = OutgoingOpaqueMessage::new(
             ContentType::ApplicationData,
             // Note: all TLS 1.3 application data records use TLSv1_2 (0x0303) as the legacy record
             // protocol version, see https://www.rfc-editor.org/rfc/rfc8446#section-5.1
             ProtocolVersion::TLSv1_2,
-            payload,
-        ))
+            total_len,
+        );
+        out.extend_from_slice(msg.payload);
+        out.extend_from_slice(&[msg.typ.get_u8()]);
+
+        let nonce = aead::Nonce::assume_unique_for_key(Nonce::new(&self.iv, seq).0);
+        let aad = aead::Aad::from(make_tls13_aad(total_len));
+        self.enc_key
+            .seal_in_place_append_tag(nonce, aad, &mut out)
+            .map_err(|_| Error::EncryptError)?;
+
+        Ok(out)
     }
 
     fn encrypted_payload_len(&self, payload_len: usize) -> usize {
@@ -271,22 +271,22 @@ impl MessageEncrypter for GcmMessageEncrypter {
         msg: BorrowedPlainMessage,
         seq: u64,
     ) -> Result<OutgoingOpaqueMessage, Error> {
-        let total_len = msg.payload.len() + 1 + self.enc_key.algorithm().tag_len();
-        let mut payload = Vec::with_capacity(total_len);
-        payload.extend_from_slice(msg.payload);
-        msg.typ.encode(&mut payload);
+        let total_len = self.encrypted_payload_len(msg.payload.len());
+        let mut out = OutgoingOpaqueMessage::new(
+            ContentType::ApplicationData,
+            ProtocolVersion::TLSv1_2,
+            total_len,
+        );
+        out.extend_from_slice(msg.payload);
+        out.extend_from_slice(&[msg.typ.get_u8()]);
 
         let nonce = aead::Nonce::assume_unique_for_key(Nonce::new(&self.iv, seq).0);
         let aad = aead::Aad::from(make_tls13_aad(total_len));
         self.enc_key
-            .seal_in_place_append_tag(nonce, aad, &mut payload)
+            .seal_in_place_append_tag(nonce, aad, &mut out)
             .map_err(|_| Error::EncryptError)?;
 
-        Ok(OutgoingOpaqueMessage::new(
-            ContentType::ApplicationData,
-            ProtocolVersion::TLSv1_2,
-            payload,
-        ))
+        Ok(out)
     }
 
     fn encrypted_payload_len(&self, payload_len: usize) -> usize {
