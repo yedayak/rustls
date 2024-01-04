@@ -49,14 +49,16 @@ impl MessageDeframer {
         // We loop over records we've received but not processed yet.
         // For records that decrypt as `Handshake`, we keep the current state of the joined
         // handshake message payload in `self.joining_hs`, appending to it as we see records.
-        let expected_len = loop {
+        loop {
             // Fragmented handshake messages are collected (in plaintext) at the start of
             // `buffer`, and the usage for this purpose is tracked by `joining_hs`.
             let start = match &self.joining_hs {
                 Some(meta) => {
                     match meta.expected_len {
                         // We're joining a handshake payload, and we've seen the full payload.
-                        Some(len) if len <= meta.payload.len() => break len,
+                        Some(len) if len <= meta.payload.len() => {
+                            return self.pop_handshake(buffer)
+                        }
                         // Not enough data, and we can't parse any more out of the buffer (QUIC).
                         _ if meta.quic => return Ok(None),
                         // Try parsing some more of the encrypted buffered data.
@@ -171,12 +173,21 @@ impl MessageDeframer {
             // than the currently buffered payload, we need to wait for more data.
             match self.append_hs::<_, false>(msg.version, &msg.payload.0, end, buffer)? {
                 HandshakePayloadState::Blocked => return Ok(None),
-                HandshakePayloadState::Complete(len) => break len,
+                HandshakePayloadState::Complete => return self.pop_handshake(buffer),
                 HandshakePayloadState::Continue => continue,
             }
-        };
+        }
+    }
 
-        let meta = self.joining_hs.as_mut().unwrap(); // safe after calling `append_hs()`
+    fn pop_handshake(
+        &mut self,
+        buffer: &mut DeframerSliceBuffer,
+    ) -> Result<Option<Deframed>, Error> {
+        // prerequisites:
+        // - `joining_hs` not None (it tells us where the handshake message is)
+        // - `joining_hs.expected_len` not None (ditto, how big it is)
+        let meta = self.joining_hs.as_mut().unwrap();
+        let expected_len = meta.expected_len.unwrap();
 
         // We can now wrap the complete handshake payload in a `PlainMessage`, to be returned.
         let message = PlainMessage {
@@ -291,7 +302,7 @@ impl MessageDeframer {
         };
 
         Ok(match meta.expected_len {
-            Some(len) if len <= meta.payload.len() => HandshakePayloadState::Complete(len),
+            Some(len) if len <= meta.payload.len() => HandshakePayloadState::Complete,
             _ => match buffer.len() > meta.message.end {
                 true => HandshakePayloadState::Continue,
                 false => HandshakePayloadState::Blocked,
@@ -515,7 +526,7 @@ enum HandshakePayloadState {
     /// Waiting for more data.
     Blocked,
     /// We have a complete handshake message.
-    Complete(usize),
+    Complete,
     /// More records available for processing.
     Continue,
 }
