@@ -215,6 +215,29 @@ pub struct CryptoProvider {
 }
 
 impl CryptoProvider {
+    /// Returns the default `CryptoProvider` for this process.
+    ///
+    /// If a crypto provider has been installed using [`install_default()`], return that.
+    /// Otherwise, return the default provider for the crate features in use. If both
+    /// first-party providers are enabled, this will return the aws-lc-rs provider.
+    #[cfg(any(feature = "aws_lc_rs", feature = "ring"))]
+    pub fn installed_or_default() -> Arc<Self> {
+        match PROCESS_DEFAULT_PROVIDER.get() {
+            Some(provider) => provider.clone(),
+            None => {
+                #[cfg(feature = "aws_lc_rs")]
+                {
+                    return Arc::new(aws_lc_rs::default_provider());
+                }
+
+                #[cfg(all(feature = "ring", not(feature = "aws_lc_rs")))]
+                {
+                    return Arc::new(ring::default_provider());
+                }
+            }
+        }
+    }
+
     /// Sets this `CryptoProvider` as the default for this process.
     ///
     /// This can be called successfully at most once in any process execution.
@@ -244,43 +267,6 @@ impl CryptoProvider {
     /// This will be `None` if no default has been set yet.
     pub fn get_default() -> Option<&'static Arc<Self>> {
         PROCESS_DEFAULT_PROVIDER.get()
-    }
-
-    /// An internal function that:
-    ///
-    /// - gets the pre-installed default, or
-    /// - installs one `from_crate_features()`, or else
-    /// - panics about the need to call [`CryptoProvider::install_default()`]
-    pub(crate) fn get_default_or_install_from_crate_features() -> &'static Arc<Self> {
-        if let Some(provider) = Self::get_default() {
-            return provider;
-        }
-
-        let provider = Self::from_crate_features()
-            .expect("no process-level CryptoProvider available -- call CryptoProvider::install_default() before this point");
-        // Ignore the error resulting from us losing a race, and accept the outcome.
-        let _ = provider.install_default();
-        Self::get_default().unwrap()
-    }
-
-    /// Returns a provider named unambiguously by rustls crate features.
-    ///
-    /// This function returns `None` if the crate features are ambiguous (ie, specify two
-    /// providers), or specify no providers.  In both cases the application should
-    /// explicitly specify the provider to use with [`CryptoProvider::install_default`].
-    fn from_crate_features() -> Option<Self> {
-        #[cfg(all(feature = "ring", not(feature = "aws_lc_rs")))]
-        {
-            return Some(ring::default_provider());
-        }
-
-        #[cfg(all(feature = "aws_lc_rs", not(feature = "ring")))]
-        {
-            return Some(aws_lc_rs::default_provider());
-        }
-
-        #[allow(unreachable_code)]
-        None
     }
 
     /// Returns `true` if this `CryptoProvider` is operating in FIPS mode.
