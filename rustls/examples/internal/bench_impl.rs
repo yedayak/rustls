@@ -1054,7 +1054,7 @@ where
     let mut tls_buf = [0u8; 262144];
     let mut read_time = 0f64;
     let mut data_left = expect_data;
-    let mut data_buf = [0u8; 8192];
+    let mut data_buf = [0u8; 16384+2048];
 
     loop {
         let mut sz = 0;
