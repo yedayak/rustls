@@ -483,6 +483,10 @@ pub trait ActiveKeyExchange: Send + Sync {
         Ok(complete_res)
     }
 
+    fn into_hybrid(self: Box<Self>) -> Option<Box<dyn ActiveHybridKeyExchange>> {
+        None
+    }
+
     /// Return the public key being used.
     ///
     /// For ECDHE, the encoding required is defined in
@@ -509,6 +513,12 @@ pub trait ActiveKeyExchange: Send + Sync {
 
     /// Return the group being used.
     fn group(&self) -> NamedGroup;
+}
+
+pub trait ActiveHybridKeyExchange: ActiveKeyExchange {
+    fn complete_component(self: Box<Self>, peer_pub_key: &[u8]) -> Result<SharedSecret, Error>;
+    fn component_pub_key(&self) -> &[u8];
+    fn component_group(&self) -> NamedGroup;
 }
 
 /// The result from [`SupportedKxGroup::start_and_complete()`].

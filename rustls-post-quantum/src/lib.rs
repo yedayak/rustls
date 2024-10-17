@@ -53,7 +53,8 @@ use aws_lc_rs::kem;
 use aws_lc_rs::unstable::kem::{get_algorithm, AlgorithmId};
 use rustls::crypto::aws_lc_rs::{default_provider, kx_group};
 use rustls::crypto::{
-    ActiveKeyExchange, CompletedKeyExchange, CryptoProvider, SharedSecret, SupportedKxGroup,
+    ActiveHybridKeyExchange, ActiveKeyExchange, CompletedKeyExchange, CryptoProvider, SharedSecret,
+    SupportedKxGroup,
 };
 use rustls::ffdhe_groups::FfdheGroup;
 use rustls::{Error, NamedGroup, PeerMisbehaved, ProtocolVersion};
@@ -158,6 +159,10 @@ impl ActiveKeyExchange for Active {
         Ok(SharedSecret::from(&combined.0[..]))
     }
 
+    fn into_hybrid(self: Box<Self>) -> Option<Box<dyn ActiveHybridKeyExchange>> {
+        Some(self)
+    }
+
     fn pub_key(&self) -> &[u8] {
         &self.combined_pub_key
     }
@@ -168,6 +173,20 @@ impl ActiveKeyExchange for Active {
 
     fn group(&self) -> NamedGroup {
         NAMED_GROUP
+    }
+}
+
+impl ActiveHybridKeyExchange for Active {
+    fn complete_component(self: Box<Self>, peer_pub_key: &[u8]) -> Result<SharedSecret, Error> {
+        self.x25519.complete(peer_pub_key)
+    }
+
+    fn component_pub_key(&self) -> &[u8] {
+        self.x25519.pub_key()
+    }
+
+    fn component_group(&self) -> NamedGroup {
+        self.x25519.group()
     }
 }
 
